@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
 function formatTime(ms) {
   if (!ms && ms !== 0) return '--';
@@ -15,11 +15,6 @@ function formatTimeSec(s) {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
-/**
- * Input de tempo isolado para cada linha.
- * Mantém estado local enquanto o usuário digita.
- * Só aplica o valor no onBlur ou Enter — evita aplicar parcialmente durante digitação.
- */
 function TimeInput({ line, idx, onApply, onSeek, onClear }) {
   const [val, setVal] = useState(
     line.stamped && line.timeMs !== null ? (line.timeMs / 1000).toFixed(2) : ''
@@ -27,8 +22,6 @@ function TimeInput({ line, idx, onApply, onSeek, onClear }) {
   const inputRef = useRef(null);
   const prevTimeMs = useRef(line.timeMs);
 
-  // Sincroniza valor exibido quando o timestamp muda externamente
-  // (ex: stamp via botão ⊕ ou barra de espaço) — não interrompe digitação ativa
   useEffect(() => {
     if (line.timeMs !== prevTimeMs.current) {
       prevTimeMs.current = line.timeMs;
@@ -123,24 +116,25 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
   const lineRefs = useRef([]);
   const objectUrlRef = useRef(null);
 
-  // Refs para uso dentro de RAF e callbacks sem dependências obsoletas
   const rafRef = useRef(null);
   const linesRef = useRef(lines);
   const modeRef = useRef(mode);
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { modeRef.current = mode; }, [mode]);
 
-  const audioSrc = audioFile
-    ? (() => {
-        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-        objectUrlRef.current = URL.createObjectURL(audioFile);
-        return objectUrlRef.current;
-      })()
-    : audioUrl || null;
+  // ─── FIX: audioSrc via useMemo para não recriar o blob a cada render ───────
+  const audioSrc = useMemo(() => {
+    if (audioFile) {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = URL.createObjectURL(audioFile);
+      return objectUrlRef.current;
+    }
+    return audioUrl || null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audioFile, audioUrl]);
 
   useEffect(() => () => { if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current); }, []);
 
-  // Loop de atualização precisa via requestAnimationFrame
   const stopRaf = useCallback(() => {
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
   }, []);
@@ -152,7 +146,6 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
       if (!audio || audio.paused) return;
       const t = audio.currentTime;
       setCurrentTime(t);
-      // Linha ativa
       const ms = t * 1000;
       const ls = linesRef.current;
       let idx = -1;
@@ -166,30 +159,29 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
     rafRef.current = requestAnimationFrame(tick);
   }, [stopRaf]);
 
-  // Scroll automático no preview
   useEffect(() => {
     if (mode === 'preview' && activeLine >= 0 && lineRefs.current[activeLine]) {
       lineRefs.current[activeLine].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [activeLine, mode]);
 
-  // Eventos de áudio
+  // ─── FIX: onPause/onPlay agora sincronizam o estado playing ────────────────
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onMeta = () => setDuration(audio.duration);
-    const onEnd = () => { setPlaying(false); setActiveLine(-1); stopRaf(); };
-    const onPause = () => stopRaf();
-    const onPlay = () => startRaf();
+    const onMeta  = () => setDuration(audio.duration);
+    const onEnd   = () => { setPlaying(false); setActiveLine(-1); stopRaf(); };
+    const onPause = () => { setPlaying(false); stopRaf(); };
+    const onPlay  = () => { setPlaying(true);  startRaf(); };
     audio.addEventListener('loadedmetadata', onMeta);
     audio.addEventListener('ended', onEnd);
     audio.addEventListener('pause', onPause);
-    audio.addEventListener('play', onPlay);
+    audio.addEventListener('play',  onPlay);
     return () => {
       audio.removeEventListener('loadedmetadata', onMeta);
       audio.removeEventListener('ended', onEnd);
       audio.removeEventListener('pause', onPause);
-      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('play',  onPlay);
       stopRaf();
     };
   }, [startRaf, stopRaf]);
@@ -218,8 +210,8 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (playing) { audio.pause(); setPlaying(false); }
-    else { audio.play(); setPlaying(true); }
+    if (audio.paused) audio.play();
+    else audio.pause();
   };
 
   const handleSeek = (e) => {
@@ -236,7 +228,6 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
     setSpeed(s);
   };
 
-  // Carimba o tempo atual com máxima precisão
   const stamp = useCallback((idx) => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -258,7 +249,6 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
     });
   }, [onChange]);
 
-  // Tecla ESPAÇO carimba próxima linha
   useEffect(() => {
     if (mode !== 'sync') return;
     const handler = (e) => {
@@ -281,7 +271,6 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
     });
   };
 
-  // Aplica tempo manual — chamado apenas no onBlur ou Enter do TimeInput
   const editTime = (idx, seconds) => {
     const ms = Math.round(seconds * 1000);
     setLines(prev => {
@@ -472,7 +461,6 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
                   if (audioRef.current) {
                     audioRef.current.currentTime = line.timeMs / 1000;
                     audioRef.current.play();
-                    setPlaying(true);
                   }
                 }}
                 style={{

@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Player from './pages/Player';
+import VideoPlayer from './pages/VideoPlayer';
 import CategoryPage from './pages/CategoryPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
@@ -26,6 +27,7 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/modulo/:id" element={<CategoryPage />} />
       <Route path="/play/:id" element={<Player />} />
+      <Route path="/video/:id" element={<VideoPlayer />} />
       <Route path="/admin" element={<ProtectedAdmin><AdminLayout /></ProtectedAdmin>}>
         <Route index element={<Dashboard />} />
         <Route path="categorias" element={<AdminCategories />} />

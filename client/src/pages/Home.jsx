@@ -5,76 +5,141 @@ import { IconPreview } from '../components/Icons';
 import AdminLoginModal from '../components/AdminLoginModal';
 import api from '../api/axios';
 
-// ─── Secret trigger: 5 clicks on the logo within 3 seconds ───────────────────
 function useSecretTrigger(threshold = 5, windowMs = 3000) {
   const [show, setShow] = useState(false);
   const clicks = useRef([]);
-
   const handleClick = () => {
     const now = Date.now();
     clicks.current = clicks.current.filter(t => now - t < windowMs);
     clicks.current.push(now);
-    if (clicks.current.length >= threshold) {
-      clicks.current = [];
-      setShow(true);
-    }
+    if (clicks.current.length >= threshold) { clicks.current = []; setShow(true); }
   };
-
   return { show, open: handleClick, close: () => setShow(false) };
 }
 
+// ── Bandeira do Brasil SVG ────────────────────────────────────────────────────
+function BandeiraBrasil({ size = 120 }) {
+  return (
+    <svg width={size} height={size * 0.7} viewBox="0 0 120 84" xmlns="http://www.w3.org/2000/svg"
+      style={{ borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.5), 0 0 30px rgba(0,150,60,0.3)', display: 'block' }}>
+      {/* Fundo verde */}
+      <rect width="120" height="84" fill="#009C3B" />
+      {/* Losango amarelo */}
+      <polygon points="60,7 113,42 60,77 7,42" fill="#FFDF00" />
+      {/* Círculo azul */}
+      <circle cx="60" cy="42" r="18" fill="#002776" />
+      {/* Faixa branca */}
+      <path d="M 42 48 Q 60 38 78 48" stroke="white" strokeWidth="3.5" fill="none" />
+      {/* ORDEM E PROGRESSO */}
+      <text x="60" y="50" textAnchor="middle" fill="white" fontSize="4.2" fontFamily="Arial, sans-serif" fontWeight="700" letterSpacing="0.8">
+        ORDEM E PROGRESSO
+      </text>
+      {/* Estrelinhas estilizadas */}
+      {[
+        [55,33],[65,33],[51,37],[69,37],[47,42],[73,42],[51,47],[69,47],[55,51],[65,51],
+        [60,31],[60,53]
+      ].map(([cx, cy], i) => (
+        <circle key={i} cx={cx} cy={cy} r="0.9" fill="white" />
+      ))}
+    </svg>
+  );
+}
+
+// ── Card de módulo ─────────────────────────────────────────────────────────────
 function ModuleCard({ category, songs, index }) {
   const navigate = useNavigate();
-  return (
-    <div className={`card fade-up fade-up-${Math.min(index + 1, 5)}`}
-      style={{ marginBottom: 12, cursor: 'pointer', borderColor: 'rgba(201,162,39,0.12)', transition: 'border-color 0.2s, transform 0.2s, background 0.2s' }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.transform = 'translateX(3px)'; e.currentTarget.style.background = 'var(--card-hover)'; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,162,39,0.12)'; e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.background = 'var(--card-bg)'; }}
-      onClick={() => navigate(`/modulo/${category._id}`)}>
+  const audioCount = songs.filter(s => (s.contentType || 'audio') === 'audio').length;
+  const videoCount = songs.filter(s => s.contentType === 'video').length;
 
+  return (
+    <div
+      className={`fade-up fade-up-${Math.min(index + 1, 5)}`}
+      onClick={() => navigate(`/modulo/${category._id}`)}
+      style={{
+        background: 'var(--bg-card)', border: '1px solid var(--border)',
+        borderRadius: 14, padding: '18px 20px', cursor: 'pointer',
+        transition: 'all 0.22s', marginBottom: 10,
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = 'var(--border-strong)';
+        e.currentTarget.style.transform = 'translateX(4px)';
+        e.currentTarget.style.background = '#172010';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = 'var(--border)';
+        e.currentTarget.style.transform = 'translateX(0)';
+        e.currentTarget.style.background = 'var(--bg-card)';
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <IconPreview iconName={category.icon} colorKey={category.iconColor} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 19, letterSpacing: '0.06em', color: 'var(--white)' }}>{category.name}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 19, letterSpacing: '0.06em', color: 'var(--white)' }}>
+              {category.name}
+            </h3>
             {category.isNew && <span className="badge badge-new">NOVO</span>}
           </div>
           {category.description && (
-            <p style={{ color: 'var(--white-dim)', fontSize: 13, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{category.description}</p>
+            <p style={{ color: 'var(--white-dim)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>
+              {category.description}
+            </p>
           )}
-          <p style={{ color: 'var(--gold)', fontSize: 12, marginTop: 4, fontWeight: 600 }}>{category.songCount} canção(ões)</p>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            {audioCount > 0 && (
+              <span style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 600 }}>🎵 {audioCount} música{audioCount > 1 ? 's' : ''}</span>
+            )}
+            {videoCount > 0 && (
+              <span style={{ fontSize: 11, color: '#86c645', fontWeight: 600 }}>🎬 {videoCount} vídeo{videoCount > 1 ? 's' : ''}</span>
+            )}
+          </div>
           <div className="progress-bar-wrap" style={{ marginTop: 8 }}>
-            <div className="progress-bar-fill" style={{ width: `${Math.min(100, (category.songCount / 10) * 100)}%` }} />
+            <div className="progress-bar-fill" style={{ width: `${Math.min(100, (songs.length / 10) * 100)}%` }} />
           </div>
         </div>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--white-faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--white-faint)" strokeWidth="2" strokeLinecap="round">
           <polyline points="9,18 15,12 9,6" />
         </svg>
       </div>
 
-      {songs && songs.length > 0 && (
-        <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 4 }}
+      {/* Preview das 3 primeiras músicas */}
+      {songs.length > 0 && (
+        <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 2 }}
           onClick={e => e.stopPropagation()}>
-          {songs.slice(0, 3).map(song => (
-            <Link key={song._id} to={`/play/${song._id}`}
-              style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, transition: 'background 0.15s', color: 'var(--white)' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--bg-dark)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--gold)" stroke="none"><polygon points="5,3 19,12 5,21" /></svg>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</div>
-                {song.description && <div style={{ fontSize: 12, color: 'var(--white-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.description}</div>}
-              </div>
-              {song.lyrics?.length > 0 && (
-                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(134,198,69,0.1)', color: '#86c645' }}>SYNC</span>
-              )}
-            </Link>
-          ))}
+          {songs.slice(0, 3).map(song => {
+            const isVideo = song.contentType === 'video';
+            return (
+              <Link
+                key={song._id}
+                to={isVideo ? `/video/${song._id}` : `/play/${song._id}`}
+                style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, transition: 'background 0.15s', color: 'var(--white)' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{
+                  width: 30, height: 30, borderRadius: 7, flexShrink: 0,
+                  background: isVideo ? 'rgba(134,198,69,0.12)' : 'var(--bg-dark)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {isVideo
+                    ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#86c645" strokeWidth="2"><polygon points="23,7 16,12 23,17"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                    : <svg width="11" height="11" viewBox="0 0 24 24" fill="var(--gold)" stroke="none"><polygon points="5,3 19,12 5,21"/></svg>}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</div>
+                </div>
+                {!isVideo && song.lyrics?.length > 0 && (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(134,198,69,0.1)', color: '#86c645', flexShrink: 0 }}>SYNC</span>
+                )}
+                {isVideo && (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(134,198,69,0.1)', color: '#86c645', flexShrink: 0 }}>VÍDEO</span>
+                )}
+              </Link>
+            );
+          })}
           {songs.length > 3 && (
-            <div style={{ padding: '6px 10px', fontSize: 12, color: 'var(--white-dim)', textAlign: 'center' }}>
-              + {songs.length - 3} mais canções →
+            <div style={{ padding: '5px 10px', fontSize: 12, color: 'var(--white-faint)', textAlign: 'center' }}>
+              + {songs.length - 3} mais →
             </div>
           )}
         </div>
@@ -83,6 +148,7 @@ function ModuleCard({ category, songs, index }) {
   );
 }
 
+// ── Home ──────────────────────────────────────────────────────────────────────
 export default function Home() {
   const [categories, setCategories] = useState([]);
   const [songsByCategory, setSongsByCategory] = useState({});
@@ -113,29 +179,78 @@ export default function Home() {
     <div style={{ minHeight: '100vh', background: 'var(--bg-dark)' }}>
       <Navbar />
 
-      {/* Hero Header — logo is the hidden trigger */}
-      <div style={{ background: 'linear-gradient(180deg, rgba(45,80,22,0.18) 0%, transparent 100%)', borderBottom: '1px solid var(--border)', padding: '36px 16px 28px', textAlign: 'center' }}>
+      {/* ══ HERO ═══════════════════════════════════════════════════════════════ */}
+      <div style={{
+        position: 'relative', overflow: 'hidden',
+        background: 'linear-gradient(180deg, #0a1f07 0%, #0c1a09 60%, var(--bg-dark) 100%)',
+        borderBottom: '1px solid var(--border)',
+        padding: '48px 16px 40px',
+      }}>
+        {/* Fundo decorativo */}
+        <div style={{
+          position: 'absolute', inset: 0, opacity: 0.06,
+          backgroundImage: 'radial-gradient(circle at 15% 50%, #3a7c20 0%, transparent 55%), radial-gradient(circle at 85% 30%, #C9A227 0%, transparent 45%)',
+          pointerEvents: 'none',
+        }} />
 
-        {/* ★ SECRET TRIGGER: click 5× rápido */}
-        <div
-          onClick={secret.open}
-          style={{ width: 72, height: 72, margin: '0 auto 14px', cursor: 'default', userSelect: 'none' }}
-          title="">
-          <svg viewBox="0 0 72 72" fill="none">
-            <polygon points="36,6 45,27 68,27 50,43 57,65 36,52 15,65 22,43 4,27 27,27" fill="none" stroke="#C9A227" strokeWidth="2"/>
-            <polygon points="36,18 41,30 54,30 44,38 48,51 36,43 24,51 28,38 18,30 31,30" fill="rgba(201,162,39,0.12)" stroke="rgba(201,162,39,0.4)" strokeWidth="1"/>
-          </svg>
+        <div className="container" style={{ position: 'relative', textAlign: 'center' }}>
+
+          {/* Bandeira + Logo lado a lado */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 28, flexWrap: 'wrap', marginBottom: 24 }}>
+
+            {/* Bandeira — SECRET TRIGGER */}
+            <div
+              onClick={secret.open}
+              style={{ cursor: 'default', userSelect: 'none', flexShrink: 0 }}
+              title="">
+              <BandeiraBrasil size={130} />
+            </div>
+
+            {/* Brasão / título central */}
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                {/* Estrela decorativa */}
+                <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style={{ flexShrink: 0 }}>
+                  <polygon points="22,4 26.5,16 39.5,16 29.5,24 33,37 22,30 11,37 14.5,24 4.5,16 17.5,16"
+                    fill="rgba(201,162,39,0.15)" stroke="#C9A227" strokeWidth="1.5"/>
+                  <circle cx="22" cy="22" r="5" fill="rgba(201,162,39,0.25)" stroke="#C9A227" strokeWidth="1"/>
+                </svg>
+                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 8vw, 72px)', letterSpacing: '0.25em', color: 'var(--gold)', lineHeight: 1, textShadow: '0 0 40px rgba(201,162,39,0.4)' }}>
+                  C.H.D.I
+                </h1>
+              </div>
+
+              <div style={{ paddingLeft: 4 }}>
+                <p style={{ fontSize: 'clamp(11px, 2.2vw, 14px)', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(201,162,39,0.85)', lineHeight: 1.4, marginBottom: 4 }}>
+                  Centro Hípico de Cavalaria de Guardas
+                </p>
+                <p style={{ fontSize: 'clamp(11px, 2vw, 13px)', fontWeight: 600, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>
+                  1º Regimento de Cavalaria de Guardas · Brasília – DF
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Linha separadora dourada */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center', marginBottom: 8 }}>
+            <div style={{ height: 1, width: 60, background: 'linear-gradient(90deg, transparent, var(--gold))' }} />
+            <div style={{ width: 6, height: 6, background: 'var(--gold)', borderRadius: '50%', opacity: 0.8 }} />
+            <div style={{ height: 1, width: 60, background: 'linear-gradient(90deg, var(--gold), transparent)' }} />
+          </div>
+
+          <p style={{ fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--white-faint)', marginTop: 6 }}>
+            Sistema de Aprendizagem e Treinamento
+          </p>
         </div>
-
-        <h1 className="fade-up" style={{ fontFamily: 'var(--font-display)', fontSize: 42, letterSpacing: '0.2em', color: 'var(--gold)', marginBottom: 6 }}>C.H.D.I</h1>
-        <p className="fade-up" style={{ color: 'var(--white-dim)', fontSize: 13, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>Centro de Hinos e Danças Institucionais</p>
-        <div style={{ width: 48, height: 2, background: 'var(--gold)', margin: '14px auto 0', opacity: 0.6 }} />
       </div>
 
-      <div className="container" style={{ padding: '28px 16px 40px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+      {/* ══ MÓDULOS ════════════════════════════════════════════════════════════ */}
+      <div className="container" style={{ padding: '28px 16px 60px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22 }}>
           <div style={{ width: 3, height: 16, background: 'var(--gold)', borderRadius: 2 }} />
-          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--gold)' }}>MÓDULOS DE APRENDIZAGEM</span>
+          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--gold)' }}>
+            MÓDULOS DE APRENDIZAGEM
+          </span>
         </div>
 
         {loading ? (
@@ -148,16 +263,25 @@ export default function Home() {
           </div>
         ) : (
           categories.map((cat, i) => (
-            <ModuleCard key={cat._id} category={cat} songs={songsByCategory[cat._id] || []} index={i} />
+            <ModuleCard
+              key={cat._id}
+              category={cat}
+              songs={songsByCategory[cat._id] || []}
+              index={i}
+            />
           ))
         )}
       </div>
 
-      <div style={{ textAlign: 'center', padding: '20px 16px', color: 'rgba(255,255,255,0.18)', fontSize: 12, letterSpacing: '0.08em', borderTop: '1px solid rgba(201,162,39,0.06)' }}>
-        C.H.D.I v2.0 — by SAYOZ
+      {/* ══ RODAPÉ ═══════════════════════════════════════════════════════════ */}
+      <div style={{
+        textAlign: 'center', padding: '20px 16px',
+        borderTop: '1px solid rgba(201,162,39,0.08)',
+        color: 'rgba(255,255,255,0.18)', fontSize: 11, letterSpacing: '0.1em',
+      }}>
+        C.H.D.I · 1º RCG · Brasília – DF &nbsp;·&nbsp; v2.0
       </div>
 
-      {/* Hidden admin login modal */}
       {secret.show && <AdminLoginModal onClose={secret.close} />}
     </div>
   );

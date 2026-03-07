@@ -88,3 +88,23 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT} [${process.env.NODE_ENV || 'development'}]`));
+
+// ── Keep-alive: evita que o serviço durma no Render free tier ─────────────────
+const https = require('https');
+const KEEPALIVE_URL = 'https://anyprem.store/api/health';
+const KEEPALIVE_INTERVAL_MS = 8 * 60 * 1000; // 8 minutos
+
+function pingKeepAlive() {
+  https.get(KEEPALIVE_URL, (res) => {
+    console.log(`[keep-alive] ping → ${KEEPALIVE_URL} | status: ${res.statusCode}`);
+    res.resume(); // descarta body
+  }).on('error', (err) => {
+    console.warn(`[keep-alive] erro no ping: ${err.message}`);
+  });
+}
+
+// Aguarda 30s após o boot para a primeira chamada, depois a cada 8min
+setTimeout(() => {
+  pingKeepAlive();
+  setInterval(pingKeepAlive, KEEPALIVE_INTERVAL_MS);
+}, 30_000);
