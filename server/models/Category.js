@@ -12,17 +12,17 @@ const categorySchema = new mongoose.Schema({
     trim: true,
     maxlength: [300, 'Descrição muito longa'],
   },
-  icon: {
+  // NOVO: rótulo da seção que aparece no app (ex: "MÓDULOS DE ENSINO")
+  sectionLabel: {
     type: String,
-    default: 'music-note',
+    trim: true,
+    maxlength: [60, 'Rótulo muito longo'],
+    default: '',
   },
-  iconColor: {
-    type: String,
-    default: 'green',
-    enum: ['green', 'gold', 'olive', 'dark-green', 'red', 'blue'],
-  },
-  order: { type: Number, default: 0 },
-  active: { type: Boolean, default: true },
+  icon:      { type: String, default: 'music-note' },
+  iconColor: { type: String, default: 'green', enum: ['green', 'gold', 'olive', 'dark-green', 'red', 'blue'] },
+  order:     { type: Number, default: 0 },
+  active:    { type: Boolean, default: true },
   songCount: { type: Number, default: 0 },
 }, { timestamps: true });
 
