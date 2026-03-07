@@ -15,6 +15,7 @@ function formatTimeSec(s) {
   return `${m}:${sec.toString().padStart(2, '0')}`;
 }
 
+// ─── TimeInput ─────────────────────────────────────────────────────────────────
 function TimeInput({ line, idx, onApply, onSeek, onClear }) {
   const [val, setVal] = useState(
     line.stamped && line.timeMs !== null ? (line.timeMs / 1000).toFixed(2) : ''
@@ -33,9 +34,7 @@ function TimeInput({ line, idx, onApply, onSeek, onClear }) {
 
   const applyValue = () => {
     const n = parseFloat(val);
-    if (!isNaN(n) && n >= 0) {
-      onApply(idx, n);
-    }
+    if (!isNaN(n) && n >= 0) onApply(idx, n);
   };
 
   return (
@@ -54,42 +53,20 @@ function TimeInput({ line, idx, onApply, onSeek, onClear }) {
         }}
         title="Tempo em segundos. Pressione Enter ou clique fora para aplicar."
         style={{
-          width: 68,
-          padding: '4px 6px',
-          fontSize: 12,
+          width: 68, padding: '4px 6px', fontSize: 12,
           background: 'rgba(255,255,255,0.05)',
           border: `1px solid ${line.stamped ? '#86c645' : 'var(--border)'}`,
-          borderRadius: 6,
-          color: 'var(--white)',
-          outline: 'none',
-          boxSizing: 'border-box',
+          borderRadius: 6, color: 'var(--white)', outline: 'none', boxSizing: 'border-box',
         }}
       />
       {line.stamped && line.timeMs !== null && (
         <>
-          <button
-            type="button"
-            onClick={() => onSeek(idx)}
-            title={`Ir para ${formatTime(line.timeMs)}`}
-            style={{
-              background: 'none', border: 'none',
-              color: '#86c645', fontFamily: 'monospace',
-              fontSize: 11, cursor: 'pointer', padding: '2px 4px',
-              whiteSpace: 'nowrap',
-            }}
-          >
+          <button type="button" onClick={() => onSeek(idx)} title={`Ir para ${formatTime(line.timeMs)}`}
+            style={{ background: 'none', border: 'none', color: '#86c645', fontFamily: 'monospace', fontSize: 11, cursor: 'pointer', padding: '2px 4px', whiteSpace: 'nowrap' }}>
             ▶{formatTime(line.timeMs)}
           </button>
-          <button
-            type="button"
-            onClick={() => { onClear(idx); setVal(''); }}
-            title="Remover timestamp"
-            style={{
-              background: 'none', border: 'none',
-              color: '#f87171', cursor: 'pointer',
-              fontSize: 14, padding: '2px 4px',
-            }}
-          >
+          <button type="button" onClick={() => { onClear(idx); setVal(''); }} title="Remover timestamp"
+            style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 14, padding: '2px 4px' }}>
             ×
           </button>
         </>
@@ -98,31 +75,78 @@ function TimeInput({ line, idx, onApply, onSeek, onClear }) {
   );
 }
 
+// ─── MiniPlayer — FORA do SyncEditor para evitar remount a cada re-render ──────
+// FIX CRÍTICO: se MiniPlayer estiver DENTRO do SyncEditor como função local,
+// React cria uma nova referência de tipo a cada render (60x/s no RAF),
+// causando unmount+mount do botão constantemente e impossibilitando cliques.
+function MiniPlayer({ playing, currentTime, duration, seekPct, onTogglePlay, onSeek, onChangeSpeed, speed, showSpeed }) {
+  return (
+    <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: showSpeed ? 12 : 0 }}>
+        <button
+          type="button"
+          onClick={onTogglePlay}
+          style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--gold)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}
+        >
+          {playing
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="#0A1208"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="#0A1208"><polygon points="5,3 19,12 5,21"/></svg>}
+        </button>
+        <div style={{ flex: 1 }}>
+          <input type="range" min="0" max="100" step="0.01" value={seekPct}
+            onChange={onSeek}
+            style={{ width: '100%', accentColor: 'var(--gold)', cursor: 'pointer' }} />
+        </div>
+        <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--white-dim)', minWidth: 80, textAlign: 'right' }}>
+          {formatTimeSec(currentTime)} / {formatTimeSec(duration)}
+        </span>
+        {showSpeed && (
+          <select value={speed} onChange={e => onChangeSpeed(parseFloat(e.target.value))}
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', color: 'var(--white)', padding: '4px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
+            <option value="0.5">0.5×</option>
+            <option value="0.75">0.75×</option>
+            <option value="1">1×</option>
+            <option value="1.25">1.25×</option>
+          </select>
+        )}
+      </div>
+      {showSpeed && (
+        <div style={{ padding: '8px 12px', background: 'rgba(212,175,55,0.08)', borderRadius: 8, borderLeft: '3px solid var(--gold)', fontSize: 12, color: 'var(--white-dim)' }}>
+          🎯 <strong style={{ color: 'var(--gold)' }}>Sync:</strong> pressione{' '}
+          <kbd style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 5px', borderRadius: 4, fontFamily: 'monospace' }}>ESPAÇO</kbd>
+          {' '}no início de cada verso, ou clique <strong>⊕</strong>. Para ajuste fino, digite o tempo em segundos e pressione{' '}
+          <kbd style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 5px', borderRadius: 4, fontFamily: 'monospace' }}>Enter</kbd>.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SyncEditor ───────────────────────────────────────────────────────────────
 export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], onChange }) {
   const [lines, setLines] = useState(() =>
     initialLyrics.map(l => ({ text: l.text, timeMs: l.timeMs, stamped: true }))
   );
   const [rawText, setRawText] = useState(() => initialLyrics.map(l => l.text).join('\n'));
-  const [mode, setMode] = useState(initialLyrics.length > 0 ? 'sync' : 'text');
+  const [mode, setMode]       = useState(initialLyrics.length > 0 ? 'sync' : 'text');
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [activeLine, setActiveLine] = useState(-1);
+  const [duration, setDuration]       = useState(0);
+  const [activeLine, setActiveLine]   = useState(-1);
   const [nextLineIdx, setNextLineIdx] = useState(0);
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed]             = useState(1);
 
-  const audioRef = useRef(null);
-  const syncListRef = useRef(null);
-  const lineRefs = useRef([]);
+  // <audio> sempre no DOM — nunca desmonta
+  const audioRef     = useRef(null);
+  const syncListRef  = useRef(null);
+  const lineRefs     = useRef([]);
   const objectUrlRef = useRef(null);
+  const rafRef       = useRef(null);
+  const linesRef     = useRef(lines);
 
-  const rafRef = useRef(null);
-  const linesRef = useRef(lines);
-  const modeRef = useRef(mode);
   useEffect(() => { linesRef.current = lines; }, [lines]);
-  useEffect(() => { modeRef.current = mode; }, [mode]);
 
-  // ─── FIX: audioSrc via useMemo para não recriar o blob a cada render ───────
+  // ─── audioSrc via useMemo para não recriar blob a cada render ─────────────
   const audioSrc = useMemo(() => {
     if (audioFile) {
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -135,6 +159,19 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
 
   useEffect(() => () => { if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current); }, []);
 
+  // ─── Atualiza src quando audioSrc muda ────────────────────────────────────
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audioSrc) {
+      audio.src = audioSrc;
+      audio.load();
+    } else {
+      audio.src = '';
+    }
+  }, [audioSrc]);
+
+  // ─── RAF loop ──────────────────────────────────────────────────────────────
   const stopRaf = useCallback(() => {
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
   }, []);
@@ -159,13 +196,15 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
     rafRef.current = requestAnimationFrame(tick);
   }, [stopRaf]);
 
+  // ─── Scroll para linha ativa no preview ───────────────────────────────────
   useEffect(() => {
     if (mode === 'preview' && activeLine >= 0 && lineRefs.current[activeLine]) {
       lineRefs.current[activeLine].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [activeLine, mode]);
 
-  // ─── FIX: onPause/onPlay agora sincronizam o estado playing ────────────────
+  // ─── Event listeners — attachados UMA VEZ no mount ────────────────────────
+  // FIX: como o <audio> está sempre no DOM, os eventos são registrados corretamente.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -174,60 +213,42 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
     const onPause = () => { setPlaying(false); stopRaf(); };
     const onPlay  = () => { setPlaying(true);  startRaf(); };
     audio.addEventListener('loadedmetadata', onMeta);
-    audio.addEventListener('ended', onEnd);
-    audio.addEventListener('pause', onPause);
-    audio.addEventListener('play',  onPlay);
+    audio.addEventListener('ended',  onEnd);
+    audio.addEventListener('pause',  onPause);
+    audio.addEventListener('play',   onPlay);
     return () => {
       audio.removeEventListener('loadedmetadata', onMeta);
-      audio.removeEventListener('ended', onEnd);
-      audio.removeEventListener('pause', onPause);
-      audio.removeEventListener('play',  onPlay);
+      audio.removeEventListener('ended',  onEnd);
+      audio.removeEventListener('pause',  onPause);
+      audio.removeEventListener('play',   onPlay);
       stopRaf();
     };
-  }, [startRaf, stopRaf]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // [] — elemento sempre no DOM, events OK
 
-  const handleGoToSync = () => {
-    const parsed = rawText.split('\n').map(t => t.trim()).filter(Boolean);
-    const existingMap = {};
-    lines.forEach(l => { existingMap[l.text] = l.timeMs; });
-    const newLines = parsed.map(text => ({
-      text,
-      timeMs: existingMap[text] ?? null,
-      stamped: existingMap[text] != null,
-    }));
-    setLines(newLines);
-    setMode('sync');
-    const first = newLines.findIndex(l => !l.stamped);
-    setNextLineIdx(first >= 0 ? first : 0);
-  };
-
-  const handleGoToPreview = () => {
-    const stamped = lines.filter(l => l.stamped && l.timeMs !== null);
-    onChange(stamped.map(l => ({ text: l.text, timeMs: l.timeMs })));
-    setMode('preview');
-  };
-
-  const togglePlay = () => {
+  // ─── Controles ─────────────────────────────────────────────────────────────
+  const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (audio.paused) audio.play();
-    else audio.pause();
-  };
+    if (audio.paused) audio.play().catch(() => {});
+    else              audio.pause();
+  }, []);
 
-  const handleSeek = (e) => {
+  const handleSeek = useCallback((e) => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !duration) return;
     const t = (e.target.value / 100) * duration;
     audio.currentTime = t;
     setCurrentTime(t);
-  };
+  }, [duration]);
 
-  const handleChangeSpeed = (s) => {
+  const handleChangeSpeed = useCallback((s) => {
     const audio = audioRef.current;
     if (audio) audio.playbackRate = s;
     setSpeed(s);
-  };
+  }, []);
 
+  // ─── Stamp, edit, clear ────────────────────────────────────────────────────
   const stamp = useCallback((idx) => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -249,6 +270,35 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
     });
   }, [onChange]);
 
+  const clearStamp = useCallback((idx) => {
+    setLines(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], timeMs: null, stamped: false };
+      const stamped = updated.filter(l => l.stamped && l.timeMs !== null);
+      onChange(stamped.map(l => ({ text: l.text, timeMs: l.timeMs })));
+      return updated;
+    });
+  }, [onChange]);
+
+  const editTime = useCallback((idx, seconds) => {
+    const ms = Math.round(seconds * 1000);
+    setLines(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], timeMs: ms, stamped: true };
+      const stamped = updated.filter(l => l.stamped && l.timeMs !== null);
+      onChange(stamped.map(l => ({ text: l.text, timeMs: l.timeMs })));
+      return updated;
+    });
+  }, [onChange]);
+
+  const seekToLine = useCallback((idx) => {
+    const audio = audioRef.current;
+    if (!audio || lines[idx].timeMs == null) return;
+    audio.currentTime = lines[idx].timeMs / 1000;
+    setCurrentTime(lines[idx].timeMs / 1000);
+  }, [lines]);
+
+  // ─── Keyboard: SPACE = stamp próxima linha ─────────────────────────────────
   useEffect(() => {
     if (mode !== 'sync') return;
     const handler = (e) => {
@@ -261,89 +311,47 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
     return () => window.removeEventListener('keydown', handler);
   }, [mode, nextLineIdx, stamp]);
 
-  const clearStamp = (idx) => {
-    setLines(prev => {
-      const updated = [...prev];
-      updated[idx] = { ...updated[idx], timeMs: null, stamped: false };
-      const stamped = updated.filter(l => l.stamped && l.timeMs !== null);
-      onChange(stamped.map(l => ({ text: l.text, timeMs: l.timeMs })));
-      return updated;
-    });
+  // ─── Navegação entre modos ──────────────────────────────────────────────────
+  const handleGoToSync = () => {
+    const parsed = rawText.split('\n').map(t => t.trim()).filter(Boolean);
+    const existingMap = {};
+    lines.forEach(l => { existingMap[l.text] = l.timeMs; });
+    const newLines = parsed.map(text => ({
+      text,
+      timeMs: existingMap[text] ?? null,
+      stamped: existingMap[text] != null,
+    }));
+    setLines(newLines);
+    setMode('sync');
+    const first = newLines.findIndex(l => !l.stamped);
+    setNextLineIdx(first >= 0 ? first : 0);
   };
 
-  const editTime = (idx, seconds) => {
-    const ms = Math.round(seconds * 1000);
-    setLines(prev => {
-      const updated = [...prev];
-      updated[idx] = { ...updated[idx], timeMs: ms, stamped: true };
-      const stamped = updated.filter(l => l.stamped && l.timeMs !== null);
-      onChange(stamped.map(l => ({ text: l.text, timeMs: l.timeMs })));
-      return updated;
-    });
-  };
-
-  const seekToLine = (idx) => {
-    const audio = audioRef.current;
-    if (!audio || lines[idx].timeMs == null) return;
-    audio.currentTime = lines[idx].timeMs / 1000;
-    setCurrentTime(lines[idx].timeMs / 1000);
+  const handleGoToPreview = () => {
+    const stamped = lines.filter(l => l.stamped && l.timeMs !== null);
+    onChange(stamped.map(l => ({ text: l.text, timeMs: l.timeMs })));
+    setMode('preview');
   };
 
   const stampedCount = lines.filter(l => l.stamped).length;
-  const seekPct = duration ? (currentTime / duration) * 100 : 0;
-
-  const MiniPlayer = ({ showSpeed = true }) => (
-    <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: showSpeed ? 12 : 0 }}>
-        <button type="button" onClick={togglePlay}
-          style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--gold)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
-          {playing
-            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="#0A1208"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
-            : <svg width="16" height="16" viewBox="0 0 24 24" fill="#0A1208"><polygon points="5,3 19,12 5,21" /></svg>}
-        </button>
-        <div style={{ flex: 1 }}>
-          <input type="range" min="0" max="100" step="0.01" value={seekPct}
-            onChange={handleSeek}
-            style={{ width: '100%', accentColor: 'var(--gold)', cursor: 'pointer' }} />
-        </div>
-        <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--white-dim)', minWidth: 80, textAlign: 'right' }}>
-          {formatTimeSec(currentTime)} / {formatTimeSec(duration)}
-        </span>
-        {showSpeed && (
-          <select value={speed} onChange={e => handleChangeSpeed(parseFloat(e.target.value))}
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border)', color: 'var(--white)', padding: '4px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
-            <option value="0.5">0.5×</option>
-            <option value="0.75">0.75×</option>
-            <option value="1">1×</option>
-            <option value="1.25">1.25×</option>
-          </select>
-        )}
-      </div>
-      {showSpeed && (
-        <div style={{ padding: '8px 12px', background: 'rgba(212,175,55,0.08)', borderRadius: 8, borderLeft: '3px solid var(--gold)', fontSize: 12, color: 'var(--white-dim)' }}>
-          🎯 <strong style={{ color: 'var(--gold)' }}>Sync:</strong> pressione{' '}
-          <kbd style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 5px', borderRadius: 4, fontFamily: 'monospace' }}>ESPAÇO</kbd>
-          {' '}no início de cada verso, ou clique <strong>⊕</strong>. Para ajuste fino, digite o tempo em segundos no campo e pressione{' '}
-          <kbd style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 5px', borderRadius: 4, fontFamily: 'monospace' }}>Enter</kbd>.
-        </div>
-      )}
-    </div>
-  );
+  const seekPct      = duration ? (currentTime / duration) * 100 : 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {audioSrc && <audio ref={audioRef} src={audioSrc} preload="metadata" style={{ display: 'none' }} />}
+
+      {/* SEMPRE no DOM */}
+      <audio ref={audioRef} preload="metadata" style={{ display: 'none' }} />
 
       {/* Abas */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
         {[
-          { key: 'text', label: '① Letras', icon: '✏️' },
-          { key: 'sync', label: '② Sincronizar', icon: '🎵' },
-          { key: 'preview', label: '③ Pré-visualizar', icon: '▶' },
+          { key: 'text',    label: '① Letras',         icon: '✏️' },
+          { key: 'sync',    label: '② Sincronizar',     icon: '🎵' },
+          { key: 'preview', label: '③ Pré-visualizar',  icon: '▶'  },
         ].map(({ key, label, icon }) => (
           <button key={key} type="button"
             onClick={() => {
-              if (key === 'sync') handleGoToSync();
+              if (key === 'sync')    handleGoToSync();
               else if (key === 'preview') handleGoToPreview();
               else setMode('text');
             }}
@@ -364,7 +372,7 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
         )}
       </div>
 
-      {/* Passo 1: Letras */}
+      {/* ── Passo 1: Letras ── */}
       {mode === 'text' && (
         <div>
           <p style={{ fontSize: 13, color: 'var(--white-dim)', marginBottom: 10 }}>
@@ -398,10 +406,20 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
         </div>
       )}
 
-      {/* Passo 2: Sincronizar */}
+      {/* ── Passo 2: Sincronizar ── */}
       {mode === 'sync' && (
         <div>
-          <MiniPlayer showSpeed={true} />
+          <MiniPlayer
+            playing={playing}
+            currentTime={currentTime}
+            duration={duration}
+            seekPct={seekPct}
+            onTogglePlay={togglePlay}
+            onSeek={handleSeek}
+            onChangeSpeed={handleChangeSpeed}
+            speed={speed}
+            showSpeed={true}
+          />
           <div ref={syncListRef} style={{ maxHeight: 420, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
             {lines.map((line, i) => (
               <div key={i} ref={el => lineRefs.current[i] = el}
@@ -414,8 +432,7 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
                   border: i === nextLineIdx ? '1px solid rgba(212,175,55,0.4)' : '1px solid transparent',
                 }}>
                 <span style={{ fontSize: 11, color: 'var(--white-faint)', minWidth: 22, textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
-                <button type="button" onClick={() => stamp(i)}
-                  title="Carimbar no tempo atual"
+                <button type="button" onClick={() => stamp(i)} title="Carimbar no tempo atual"
                   style={{
                     width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                     background: line.stamped ? 'rgba(134,198,69,0.2)' : 'rgba(212,175,55,0.15)',
@@ -446,10 +463,20 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
         </div>
       )}
 
-      {/* Passo 3: Pré-visualizar */}
+      {/* ── Passo 3: Pré-visualizar ── */}
       {mode === 'preview' && (
         <div>
-          <MiniPlayer showSpeed={false} />
+          <MiniPlayer
+            playing={playing}
+            currentTime={currentTime}
+            duration={duration}
+            seekPct={seekPct}
+            onTogglePlay={togglePlay}
+            onSeek={handleSeek}
+            onChangeSpeed={handleChangeSpeed}
+            speed={speed}
+            showSpeed={false}
+          />
           <div style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, maxHeight: 360, overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <div style={{ width: 3, height: 14, background: 'var(--gold)', borderRadius: 2 }} />
@@ -458,20 +485,21 @@ export default function SyncEditor({ audioFile, audioUrl, initialLyrics = [], on
             {lines.filter(l => l.stamped).map((line, i) => (
               <div key={i} ref={el => lineRefs.current[i] = el}
                 onClick={() => {
-                  if (audioRef.current) {
-                    audioRef.current.currentTime = line.timeMs / 1000;
-                    audioRef.current.play();
+                  const audio = audioRef.current;
+                  if (audio) {
+                    audio.currentTime = line.timeMs / 1000;
+                    audio.play().catch(() => {});
                   }
                 }}
                 style={{
                   padding: '10px 14px', marginBottom: 4, borderRadius: 8,
                   cursor: 'pointer', transition: 'all 0.2s',
-                  fontSize: i === activeLine ? 17 : 14,
+                  fontSize:   i === activeLine ? 17 : 14,
                   fontWeight: i === activeLine ? 700 : 400,
-                  color: i === activeLine ? '#FFFFFF' : 'rgba(255,255,255,0.4)',
+                  color:      i === activeLine ? '#FFFFFF' : 'rgba(255,255,255,0.4)',
                   background: i === activeLine ? 'rgba(212,175,55,0.15)' : 'transparent',
                   borderLeft: i === activeLine ? '3px solid var(--gold)' : '3px solid transparent',
-                  transform: i === activeLine ? 'translateX(6px)' : 'none',
+                  transform:  i === activeLine ? 'translateX(6px)' : 'none',
                 }}>
                 {line.text}
               </div>
