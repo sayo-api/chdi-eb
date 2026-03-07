@@ -20,8 +20,8 @@ exports.create = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(422).json({ errors: errors.array() });
   try {
-    const { name, description, icon, iconColor, order } = req.body;
-    const category = await Category.create({ name, description, icon, iconColor, order });
+    const { name, description, sectionLabel, icon, iconColor, order } = req.body;
+    const category = await Category.create({ name, description, sectionLabel, icon, iconColor, order });
     res.status(201).json({ message: 'Categoria criada.', category });
   } catch (err) {
     res.status(500).json({ message: 'Erro ao criar categoria.' });
