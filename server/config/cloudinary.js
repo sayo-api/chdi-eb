@@ -1,39 +1,20 @@
 const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
+const { Readable } = require('stream');
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
+  api_key:    process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const audioStorage = new CloudinaryStorage({
-  cloudinary,
-  params: async (req, file) => ({
-    folder: `chdi/songs/${req.body.categoryId || 'uncategorized'}`,
-    resource_type: 'video', // Cloudinary usa "video" para áudio
-    allowed_formats: ['mp3', 'wav', 'ogg', 'm4a'],
-    public_id: `${Date.now()}_${file.originalname.replace(/\s+/g, '_').split('.')[0]}`,
-  }),
-});
-
-const imageStorage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: 'chdi/covers',
-    resource_type: 'image',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-    transformation: [{ width: 400, height: 400, crop: 'fill', quality: 'auto' }],
-  },
-});
-
+// Usa memoryStorage — sobe o buffer diretamente para o Cloudinary via stream
 const uploadAudio = multer({
-  storage: audioStorage,
-  limits: { fileSize: 50 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
   fileFilter: (_req, file, cb) => {
-    const allowed = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4', 'audio/mp3', 'audio/x-m4a'];
-    if (allowed.includes(file.mimetype) || /\.(mp3|wav|ogg|m4a)$/i.test(file.originalname)) {
+    const ok = ['audio/mpeg','audio/wav','audio/ogg','audio/mp4','audio/mp3','audio/x-m4a'];
+    if (ok.includes(file.mimetype) || /\.(mp3|wav|ogg|m4a)$/i.test(file.originalname)) {
       cb(null, true);
     } else {
       cb(new Error('Apenas arquivos de áudio são permitidos (mp3, wav, ogg, m4a)'));
@@ -42,12 +23,28 @@ const uploadAudio = multer({
 });
 
 const uploadImage = multer({
-  storage: imageStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
     else cb(new Error('Apenas imagens são permitidas'));
   },
 });
 
-module.exports = { cloudinary, uploadAudio, uploadImage };
+/**
+ * Sobe um buffer para o Cloudinary via upload_stream.
+ * @param {Buffer} buffer
+ * @param {object} options  opções do cloudinary (folder, resource_type, public_id, etc.)
+ * @returns {Promise<object>} resultado do cloudinary
+ */
+function uploadBuffer(buffer, options = {}) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(options, (err, result) => {
+      if (err) return reject(err);
+      resolve(result);
+    });
+    Readable.from(buffer).pipe(stream);
+  });
+}
+
+module.exports = { cloudinary, uploadAudio, uploadImage, uploadBuffer };
