@@ -10,6 +10,7 @@ import AdminLayout from './pages/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
 import AdminCategories from './pages/admin/AdminCategories';
 import AdminSongs from './pages/admin/AdminSongs';
+import AdminVideos from './pages/admin/AdminVideos';
 
 function ProtectedAdmin({ children }) {
   const { user, loading } = useAuth();
@@ -32,6 +33,7 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="categorias" element={<AdminCategories />} />
         <Route path="musicas" element={<AdminSongs />} />
+        <Route path="videos" element={<AdminVideos />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

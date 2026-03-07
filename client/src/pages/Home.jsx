@@ -195,50 +195,19 @@ export default function Home() {
 
         <div className="container" style={{ position: 'relative', textAlign: 'center' }}>
 
-          {/* Bandeira + Logo lado a lado */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 28, flexWrap: 'wrap', marginBottom: 24 }}>
-
-            {/* Bandeira — SECRET TRIGGER */}
-            <div
-              onClick={secret.open}
-              style={{ cursor: 'default', userSelect: 'none', flexShrink: 0 }}
-              title="">
-              <BandeiraBrasil size={130} />
-            </div>
-
-            {/* Brasão / título central */}
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                {/* Estrela decorativa */}
-                <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style={{ flexShrink: 0 }}>
-                  <polygon points="22,4 26.5,16 39.5,16 29.5,24 33,37 22,30 11,37 14.5,24 4.5,16 17.5,16"
-                    fill="rgba(201,162,39,0.15)" stroke="#C9A227" strokeWidth="1.5"/>
-                  <circle cx="22" cy="22" r="5" fill="rgba(201,162,39,0.25)" stroke="#C9A227" strokeWidth="1"/>
-                </svg>
-                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(48px, 8vw, 72px)', letterSpacing: '0.25em', color: 'var(--gold)', lineHeight: 1, textShadow: '0 0 40px rgba(201,162,39,0.4)' }}>
-                  C.H.D.I
-                </h1>
-              </div>
-
-              <div style={{ paddingLeft: 4 }}>
-                <p style={{ fontSize: 'clamp(11px, 2.2vw, 14px)', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(201,162,39,0.85)', lineHeight: 1.4, marginBottom: 4 }}>
-                  Centro Hípico de Cavalaria de Guardas
-                </p>
-                <p style={{ fontSize: 'clamp(11px, 2vw, 13px)', fontWeight: 600, letterSpacing: '0.12em', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>
-                  1º Regimento de Cavalaria de Guardas · Brasília – DF
-                </p>
-              </div>
-            </div>
+          {/* Bandeira grande centralizada — SECRET TRIGGER */}
+          <div onClick={secret.open} style={{ cursor: 'default', userSelect: 'none', marginBottom: 20 }}>
+            <BandeiraBrasil size={200} />
           </div>
 
           {/* Linha separadora dourada */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center', marginBottom: 8 }}>
-            <div style={{ height: 1, width: 60, background: 'linear-gradient(90deg, transparent, var(--gold))' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center', marginBottom: 10 }}>
+            <div style={{ height: 1, width: 70, background: 'linear-gradient(90deg, transparent, var(--gold))' }} />
             <div style={{ width: 6, height: 6, background: 'var(--gold)', borderRadius: '50%', opacity: 0.8 }} />
-            <div style={{ height: 1, width: 60, background: 'linear-gradient(90deg, var(--gold), transparent)' }} />
+            <div style={{ height: 1, width: 70, background: 'linear-gradient(90deg, var(--gold), transparent)' }} />
           </div>
 
-          <p style={{ fontSize: 12, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--white-faint)', marginTop: 6 }}>
+          <p style={{ fontSize: 12, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--white-faint)' }}>
             Sistema de Aprendizagem e Treinamento
           </p>
         </div>

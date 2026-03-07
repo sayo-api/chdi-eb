@@ -130,7 +130,7 @@ function UploadArea({ file, onFile, accept, icon, label, hint, existingUrl, exis
 // ─── Modal de Conteúdo ─────────────────────────────────────────────────────────
 function ContentModal({ song, categories, onClose, onSaved }) {
   const isEdit = !!song?._id;
-  const defaultType = song?.contentType || 'audio';
+  const defaultType = 'audio'; // AdminSongs só gerencia áudio
 
   const [contentType, setContentType] = useState(defaultType);
   const [form, setForm] = useState({
@@ -183,7 +183,7 @@ function ContentModal({ song, categories, onClose, onSaved }) {
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{ maxWidth: 700, maxHeight: '94vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div className="modal-header">
-          <span className="modal-title">{isEdit ? 'EDITAR CONTEÚDO' : 'NOVO CONTEÚDO'}</span>
+          <span className="modal-title">{isEdit ? 'EDITAR MÚSICA' : 'NOVA MÚSICA'}</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--white-dim)', cursor: 'pointer', fontSize: 22 }}>×</button>
         </div>
 
@@ -320,7 +320,7 @@ export default function AdminSongs() {
   const [loading,    setLoading]   = useState(true);
   const [modal,      setModal]     = useState(null);
   const [filterCat,  setFilterCat] = useState('');
-  const [filterType, setFilterType] = useState('');
+  const [filterType, setFilterType] = useState('audio');
   const [toast,      setToast]     = useState('');
 
   const load = async () => {
@@ -350,8 +350,8 @@ export default function AdminSongs() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 26, letterSpacing: '0.1em', color: 'var(--white)', marginBottom: 4 }}>CONTEÚDO</h2>
-          <p style={{ color: 'var(--white-dim)', fontSize: 14 }}>Músicas e módulos de vídeo disponíveis no app</p>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 26, letterSpacing: '0.1em', color: 'var(--white)', marginBottom: 4 }}>MÚSICAS</h2>
+          <p style={{ color: 'var(--white-dim)', fontSize: 14 }}>Hinos e músicas militares disponíveis no app</p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <select className="form-input" style={{ width: 'auto', fontSize: 13 }} value={filterType} onChange={e => setFilterType(e.target.value)}>
@@ -363,7 +363,7 @@ export default function AdminSongs() {
             <option value="">Todos os módulos</option>
             {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
           </select>
-          <button className="btn btn-gold" onClick={() => setModal({})}>+ Novo Conteúdo</button>
+          <button className="btn btn-gold" onClick={() => setModal({})}>+ Nova Música</button>
         </div>
       </div>
 
