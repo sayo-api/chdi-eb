@@ -1,12 +1,26 @@
-const Song = require('../models/Song');
+const Song     = require('../models/Song');
 const Category = require('../models/Category');
 const { cloudinary, uploadBuffer } = require('../config/cloudinary');
+
+// ─── Público ──────────────────────────────────────────────────────────────────
+
+exports.getAll = async (req, res) => {
+  try {
+    const songs = await Song.find({ active: true })
+      .sort({ order: 1, createdAt: 1 })
+      .populate('category', 'name icon iconColor')
+      .select('-audioPublicId -videoPublicId -coverPublicId');
+    res.json({ songs });
+  } catch (err) {
+    res.status(500).json({ message: 'Erro ao buscar músicas.' });
+  }
+};
 
 exports.getByCategory = async (req, res) => {
   try {
     const songs = await Song.find({ category: req.params.categoryId, active: true })
       .sort({ order: 1, createdAt: 1 })
-      .select('-audioPublicId -coverPublicId');
+      .select('-audioPublicId -videoPublicId -coverPublicId');
     res.json({ songs });
   } catch (err) {
     res.status(500).json({ message: 'Erro ao buscar músicas.' });
@@ -15,111 +29,144 @@ exports.getByCategory = async (req, res) => {
 
 exports.getOne = async (req, res) => {
   try {
-    const song = await Song.findById(req.params.id).populate('category', 'name icon iconColor');
-    if (!song || !song.active) return res.status(404).json({ message: 'Música não encontrada.' });
+    const song = await Song.findById(req.params.id)
+      .populate('category', 'name icon iconColor');
+    if (!song || !song.active) return res.status(404).json({ message: 'Conteúdo não encontrado.' });
     await Song.findByIdAndUpdate(req.params.id, { $inc: { playCount: 1 } });
     res.json({ song });
   } catch (err) {
-    res.status(500).json({ message: 'Erro ao buscar música.' });
+    res.status(500).json({ message: 'Erro ao buscar conteúdo.' });
   }
 };
 
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
 exports.create = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: 'Arquivo de áudio é obrigatório.' });
+    const { title, description, categoryId, contentType, lyrics, cards, order } = req.body;
 
-    const { title, description, categoryId, lyrics, order } = req.body;
-    if (!title) return res.status(422).json({ message: 'Título é obrigatório.' });
+    if (!title)      return res.status(422).json({ message: 'Título é obrigatório.' });
     if (!categoryId) return res.status(422).json({ message: 'Categoria é obrigatória.' });
+
+    const type = contentType === 'video' ? 'video' : 'audio';
+
+    if (!req.file) return res.status(400).json({
+      message: type === 'video'
+        ? 'Arquivo de vídeo é obrigatório.'
+        : 'Arquivo de áudio é obrigatório.',
+    });
 
     const category = await Category.findById(categoryId);
     if (!category) return res.status(404).json({ message: 'Categoria não encontrada.' });
 
-    // Upload buffer → Cloudinary
     const publicId = `${Date.now()}_${req.file.originalname.replace(/\s+/g,'_').split('.')[0]}`;
+    const resourceType = type === 'video' ? 'video' : 'video'; // Cloudinary usa "video" para ambos
+    const folder = `chdi/${type === 'video' ? 'videos' : 'songs'}/${categoryId}`;
+
     const result = await uploadBuffer(req.file.buffer, {
-      folder: `chdi/songs/${categoryId}`,
-      resource_type: 'video', // Cloudinary usa "video" para áudio
+      folder,
+      resource_type: resourceType,
       public_id: publicId,
+      // Para vídeos grandes usa upload chunked implícito via stream
     });
 
     let parsedLyrics = [];
-    if (lyrics) { try { parsedLyrics = JSON.parse(lyrics); } catch (_) {} }
+    let parsedCards  = [];
+    try { if (lyrics) parsedLyrics = JSON.parse(lyrics); } catch (_) {}
+    try { if (cards)  parsedCards  = JSON.parse(cards);  } catch (_) {}
 
-    const song = await Song.create({
+    const songData = {
       title: title.trim(),
       description: description?.trim(),
       category: categoryId,
-      audioUrl: result.secure_url,
-      audioPublicId: result.public_id,
+      contentType: type,
+      coverUrl: req.body.coverUrl || null,
       lyrics: parsedLyrics,
+      cards: parsedCards,
       order: order ? parseInt(order) : 0,
       createdBy: req.user._id,
-    });
+    };
 
-    res.status(201).json({ message: 'Música adicionada com sucesso.', song });
+    if (type === 'video') {
+      songData.videoUrl      = result.secure_url;
+      songData.videoPublicId = result.public_id;
+    } else {
+      songData.audioUrl      = result.secure_url;
+      songData.audioPublicId = result.public_id;
+    }
+
+    const song = await Song.create(songData);
+    res.status(201).json({ message: 'Conteúdo adicionado com sucesso.', song });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Erro ao criar música.' });
+    res.status(500).json({ message: 'Erro ao criar conteúdo.' });
   }
 };
 
 exports.update = async (req, res) => {
   try {
-    const { title, description, categoryId, lyrics, order, active } = req.body;
+    const { title, description, categoryId, contentType, lyrics, cards, order, active } = req.body;
     const updateData = {};
-    if (title) updateData.title = title.trim();
+
+    if (title       !== undefined) updateData.title       = title.trim();
     if (description !== undefined) updateData.description = description?.trim();
-    if (categoryId) updateData.category = categoryId;
-    if (lyrics !== undefined) { try { updateData.lyrics = JSON.parse(lyrics); } catch (_) {} }
-    if (order !== undefined) updateData.order = parseInt(order);
-    if (active !== undefined) updateData.active = active === 'true' || active === true;
+    if (categoryId  !== undefined) updateData.category    = categoryId;
+    if (order       !== undefined) updateData.order       = parseInt(order);
+    if (active      !== undefined) updateData.active      = active === 'true' || active === true;
+
+    try { if (lyrics !== undefined) updateData.lyrics = JSON.parse(lyrics); } catch (_) {}
+    try { if (cards  !== undefined) updateData.cards  = JSON.parse(cards);  } catch (_) {}
 
     if (req.file) {
-      // Deletar áudio antigo do Cloudinary
-      const old = await Song.findById(req.params.id);
-      if (old?.audioPublicId) {
-        await cloudinary.uploader.destroy(old.audioPublicId, { resource_type: 'video' }).catch(() => {});
+      const existing = await Song.findById(req.params.id);
+      const type = contentType === 'video' ? 'video' : (existing?.contentType || 'audio');
+
+      // Remove mídia antiga do Cloudinary
+      const oldPublicId = type === 'video' ? existing?.videoPublicId : existing?.audioPublicId;
+      if (oldPublicId) {
+        await cloudinary.uploader.destroy(oldPublicId, { resource_type: 'video' }).catch(() => {});
       }
-      // Upload novo
+
       const publicId = `${Date.now()}_${req.file.originalname.replace(/\s+/g,'_').split('.')[0]}`;
-      const result = await uploadBuffer(req.file.buffer, {
-        folder: `chdi/songs/${categoryId || old?.category}`,
-        resource_type: 'video',
-        public_id: publicId,
-      });
-      updateData.audioUrl = result.secure_url;
-      updateData.audioPublicId = result.public_id;
+      const folder   = `chdi/${type === 'video' ? 'videos' : 'songs'}/${categoryId || existing?.category}`;
+      const result   = await uploadBuffer(req.file.buffer, { folder, resource_type: 'video', public_id: publicId });
+
+      if (type === 'video') {
+        updateData.videoUrl      = result.secure_url;
+        updateData.videoPublicId = result.public_id;
+        updateData.contentType   = 'video';
+      } else {
+        updateData.audioUrl      = result.secure_url;
+        updateData.audioPublicId = result.public_id;
+        updateData.contentType   = 'audio';
+      }
     }
 
     const song = await Song.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
-    if (!song) return res.status(404).json({ message: 'Música não encontrada.' });
-    res.json({ message: 'Música atualizada.', song });
+    if (!song) return res.status(404).json({ message: 'Conteúdo não encontrado.' });
+    res.json({ message: 'Conteúdo atualizado.', song });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Erro ao atualizar música.' });
+    res.status(500).json({ message: 'Erro ao atualizar conteúdo.' });
   }
 };
 
 exports.remove = async (req, res) => {
   try {
     const song = await Song.findById(req.params.id);
-    if (!song) return res.status(404).json({ message: 'Música não encontrada.' });
-    if (song.audioPublicId) {
-      await cloudinary.uploader.destroy(song.audioPublicId, { resource_type: 'video' }).catch(() => {});
-    }
-    await Song.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Música removida.' });
-  } catch (err) {
-    res.status(500).json({ message: 'Erro ao remover música.' });
-  }
-};
+    if (!song) return res.status(404).json({ message: 'Conteúdo não encontrado.' });
 
-exports.getAll = async (req, res) => {
-  try {
-    const songs = await Song.find({ active: true }).populate('category', 'name').sort({ createdAt: -1 });
-    res.json({ songs });
+    const publicId = song.audioPublicId || song.videoPublicId;
+    if (publicId) {
+      await cloudinary.uploader.destroy(publicId, { resource_type: 'video' }).catch(() => {});
+    }
+    if (song.coverPublicId) {
+      await cloudinary.uploader.destroy(song.coverPublicId, { resource_type: 'image' }).catch(() => {});
+    }
+
+    await song.deleteOne();
+    res.json({ message: 'Conteúdo removido.' });
   } catch (err) {
-    res.status(500).json({ message: 'Erro ao buscar músicas.' });
+    res.status(500).json({ message: 'Erro ao remover.' });
   }
 };

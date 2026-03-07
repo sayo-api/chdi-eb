@@ -1,5 +1,5 @@
 const cloudinary = require('cloudinary').v2;
-const multer = require('multer');
+const multer     = require('multer');
 const { Readable } = require('stream');
 
 cloudinary.config({
@@ -8,35 +8,51 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Usa memoryStorage — sobe o buffer diretamente para o Cloudinary via stream
+// Áudio — mp3, wav, ogg, m4a (50 MB)
 const uploadAudio = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ok = ['audio/mpeg','audio/wav','audio/ogg','audio/mp4','audio/mp3','audio/x-m4a'];
-    if (ok.includes(file.mimetype) || /\.(mp3|wav|ogg|m4a)$/i.test(file.originalname)) {
+    if (ok.includes(file.mimetype) || /\.(mp3|wav|ogg|m4a)$/i.test(file.originalname)) cb(null, true);
+    else cb(new Error('Apenas áudio (mp3, wav, ogg, m4a)'));
+  },
+});
+
+// Vídeo — mp4, mov, avi, mkv, webm (500 MB)
+const uploadVideo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 500 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = ['video/mp4','video/quicktime','video/x-msvideo','video/x-matroska','video/webm','video/mpeg'];
+    if (ok.includes(file.mimetype) || /\.(mp4|mov|avi|mkv|webm)$/i.test(file.originalname)) cb(null, true);
+    else cb(new Error('Apenas vídeo (mp4, mov, avi, mkv, webm)'));
+  },
+});
+
+// Upload genérico (áudio ou vídeo) — detecta pelo mimetype
+const uploadMedia = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 500 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('audio/') || file.mimetype.startsWith('video/') ||
+        /\.(mp3|wav|ogg|m4a|mp4|mov|avi|mkv|webm)$/i.test(file.originalname)) {
       cb(null, true);
     } else {
-      cb(new Error('Apenas arquivos de áudio são permitidos (mp3, wav, ogg, m4a)'));
+      cb(new Error('Apenas arquivos de áudio ou vídeo'));
     }
   },
 });
 
 const uploadImage = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Apenas imagens são permitidas'));
+    else cb(new Error('Apenas imagens'));
   },
 });
 
-/**
- * Sobe um buffer para o Cloudinary via upload_stream.
- * @param {Buffer} buffer
- * @param {object} options  opções do cloudinary (folder, resource_type, public_id, etc.)
- * @returns {Promise<object>} resultado do cloudinary
- */
 function uploadBuffer(buffer, options = {}) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(options, (err, result) => {
@@ -47,4 +63,4 @@ function uploadBuffer(buffer, options = {}) {
   });
 }
 
-module.exports = { cloudinary, uploadAudio, uploadImage, uploadBuffer };
+module.exports = { cloudinary, uploadAudio, uploadVideo, uploadMedia, uploadImage, uploadBuffer };

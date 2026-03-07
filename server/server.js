@@ -65,6 +65,7 @@ if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/songs', require('./routes/songs'));
+app.use('/api/sync', require('./routes/sync'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
