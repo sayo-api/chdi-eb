@@ -65,6 +65,7 @@ if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/categories', require('./routes/categories'));
 app.use('/api/songs', require('./routes/songs'));
+app.use('/api/pdfs', require('./routes/pdfs'));
 app.use('/api/sync', require('./routes/sync'));
 
 // Health check

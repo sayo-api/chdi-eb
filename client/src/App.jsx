@@ -6,11 +6,13 @@ import Register from './pages/Register';
 import Player from './pages/Player';
 import VideoPlayer from './pages/VideoPlayer';
 import CategoryPage from './pages/CategoryPage';
+import PdfViewer from './pages/PdfViewer';
 import AdminLayout from './pages/admin/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
 import AdminCategories from './pages/admin/AdminCategories';
 import AdminSongs from './pages/admin/AdminSongs';
 import AdminVideos from './pages/admin/AdminVideos';
+import AdminPdfs from './pages/admin/AdminPdfs';
 
 function ProtectedAdmin({ children }) {
   const { user, loading } = useAuth();
@@ -29,11 +31,13 @@ export default function App() {
       <Route path="/modulo/:id" element={<CategoryPage />} />
       <Route path="/play/:id" element={<Player />} />
       <Route path="/video/:id" element={<VideoPlayer />} />
+      <Route path="/pdf/:id" element={<PdfViewer />} />
       <Route path="/admin" element={<ProtectedAdmin><AdminLayout /></ProtectedAdmin>}>
         <Route index element={<Dashboard />} />
         <Route path="categorias" element={<AdminCategories />} />
         <Route path="musicas" element={<AdminSongs />} />
         <Route path="videos" element={<AdminVideos />} />
+        <Route path="pdfs" element={<AdminPdfs />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
