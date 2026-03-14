@@ -62,29 +62,33 @@ app.use('/api', rateLimit({
 if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 
 // ── API Routes ────────────────────────────────────────────
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/categories', require('./routes/categories'));
-app.use('/api/songs', require('./routes/songs'));
-app.use('/api/pdfs', require('./routes/pdfs'));
-app.use('/api/sync', require('./routes/sync'));
+app.use('/api/auth',          require('./routes/auth'));
+app.use('/api/categories',    require('./routes/categories'));
+app.use('/api/songs',         require('./routes/songs'));
+app.use('/api/pdfs',          require('./routes/pdfs'));
+app.use('/api/sync',          require('./routes/sync'));
+app.use('/api/app-users',     require('./routes/appUsers'));
+app.use('/api/schedule',      require('./routes/schedule'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/content',       require('./routes/content'));
+app.use('/api/push',          require('./routes/push'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 
-// ── Serve React build in production ──────────────────────
-const clientBuild = path.join(__dirname, '..', 'client', 'dist');
-app.use(express.static(clientBuild));
-
-// SPA fallback — todas as rotas não-API servem o index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(clientBuild, 'index.html'));
-});
-
-// ── Error handler ─────────────────────────────────────────
+// ── Error handler (deve vir ANTES do catch-all SPA) ───────
 app.use((err, req, res, next) => {
   console.error(err);
   const status = err.status || 500;
   res.status(status).json({ message: err.message || 'Erro interno do servidor.' });
+});
+
+// ── Serve React build in production ──────────────────────
+// DEVE ficar por último — catch-all só após todas as rotas API
+const clientBuild = path.join(__dirname, '..', 'client', 'dist');
+app.use(express.static(clientBuild));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientBuild, 'index.html'));
 });
 
 const PORT = process.env.PORT || 5000;
