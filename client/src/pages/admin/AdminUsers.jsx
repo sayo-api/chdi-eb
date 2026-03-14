@@ -124,7 +124,7 @@ export default function AdminUsers() {
   const showToast = (msg, type = 'success') => setToast({ msg, type });
 
   const load = async () => {
-    try { const { data } = await api.get('/app-users'); setUsers(data.users); }
+    try { const { data } = await api.get('/app-users'); setUsers(data.users || []); }
     catch { showToast('Erro ao carregar.', 'error'); }
     finally { setLoading(false); }
   };

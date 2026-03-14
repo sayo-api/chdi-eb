@@ -216,8 +216,8 @@ export default function AdminPdfs() {
   const load = async () => {
     try {
       const [pRes, cRes] = await Promise.all([api.get('/pdfs'), api.get('/categories')]);
-      setPdfs(pRes.data.pdfs);
-      setCategories(cRes.data.categories);
+      setPdfs(pRes.data.pdfs || []);
+      setCategories(cRes.data.categories || []);
     } finally { setLoading(false); }
   };
 

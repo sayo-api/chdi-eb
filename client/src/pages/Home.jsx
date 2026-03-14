@@ -161,7 +161,7 @@ export default function Home() {
     const load = async () => {
       try {
         const { data } = await api.get('/categories');
-        setCategories(data.categories);
+        setCategories(data.categories || []);
         const songsMap = {};
         await Promise.all(data.categories.map(async cat => {
           try {

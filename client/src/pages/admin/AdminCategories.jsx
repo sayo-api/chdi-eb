@@ -150,7 +150,7 @@ export default function AdminCategories() {
   const [toast, setToast] = useState('');
 
   const load = async () => {
-    try { const { data } = await api.get('/categories'); setCategories(data.categories); }
+    try { const { data } = await api.get('/categories'); setCategories(data.categories || []); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);

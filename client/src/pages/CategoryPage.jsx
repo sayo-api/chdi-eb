@@ -36,8 +36,8 @@ export default function CategoryPage() {
         ]);
         const cat = catsRes.data.categories.find(c => c._id === id);
         setCategory(cat || null);
-        setSongs(songsRes.data.songs);
-        setPdfs(pdfsRes.data.pdfs);
+        setSongs(songsRes.data.songs || []);
+        setPdfs(pdfsRes.data.pdfs || []);
       } catch (e) {
         console.error(e);
       } finally {
