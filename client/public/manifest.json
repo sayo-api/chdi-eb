@@ -1,0 +1,20 @@
+{
+  "name": "C.H.D.I · 1º RCG",
+  "short_name": "CHDI",
+  "description": "Companhia de Honra e Defesa Interna — Aplicativo de Instrução Militar",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0F08",
+  "theme_color": "#C9A227",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["military", "education"],
+  "lang": "pt-BR"
+}
