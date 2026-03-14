@@ -1,5 +1,6 @@
-const Schedule = require('../models/Schedule');
+const Schedule     = require('../models/Schedule');
 const Notification = require('../models/Notification');
+const { sendPushToUsers } = require('../utils/pushService');
 
 async function notifyScheduleChange(schedule, type, previousSoldierIds = []) {
   const currentIds = schedule.entries.map(e => String(e.soldier._id || e.soldier));
@@ -7,15 +8,56 @@ async function notifyScheduleChange(schedule, type, previousSoldierIds = []) {
   const addedIds   = currentIds.filter(id => !prevIds.includes(id));
   const removedIds = prevIds.filter(id => !currentIds.includes(id));
   const dateStr = new Date(schedule.date).toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit', year:'numeric' });
+
   const notifications = [];
-  addedIds.forEach(id => notifications.push({ user: id, type: 'schedule_added', title: '📋 Você foi escalado!', message: `Você foi adicionado à escala de serviço do dia ${dateStr}.`, relatedDate: schedule.date }));
-  removedIds.forEach(id => notifications.push({ user: id, type: 'schedule_removed', title: '🔔 Escala alterada', message: `Você foi removido da escala de serviço do dia ${dateStr}.`, relatedDate: schedule.date }));
+  addedIds.forEach(id => notifications.push({
+    user: id, type: 'schedule_added',
+    title: '📋 Você foi escalado!',
+    message: `Você foi adicionado à escala de serviço do dia ${dateStr}.`,
+    relatedDate: schedule.date,
+  }));
+  removedIds.forEach(id => notifications.push({
+    user: id, type: 'schedule_removed',
+    title: '🔔 Escala alterada',
+    message: `Você foi removido da escala de serviço do dia ${dateStr}.`,
+    relatedDate: schedule.date,
+  }));
   if (type === 'updated') {
     currentIds.filter(id => prevIds.includes(id)).forEach(id =>
-      notifications.push({ user: id, type: 'schedule_changed', title: '🔄 Escala atualizada', message: `A escala de serviço do dia ${dateStr} foi atualizada.`, relatedDate: schedule.date })
+      notifications.push({
+        user: id, type: 'schedule_changed',
+        title: '🔄 Escala atualizada',
+        message: `A escala de serviço do dia ${dateStr} foi atualizada.`,
+        relatedDate: schedule.date,
+      })
     );
   }
-  if (notifications.length > 0) await Notification.insertMany(notifications);
+
+  if (notifications.length === 0) return;
+
+  // Save in-app notifications
+  await Notification.insertMany(notifications);
+
+  // Send FCM + Web push grouped by type
+  try {
+    const pushGroups = {};
+    for (const n of notifications) {
+      if (!pushGroups[n.type]) pushGroups[n.type] = { ids: [], notif: n };
+      pushGroups[n.type].ids.push(String(n.user));
+    }
+    await Promise.allSettled(
+      Object.values(pushGroups).map(({ ids, notif }) =>
+        sendPushToUsers(ids, {
+          title: notif.title,
+          body:  notif.message,
+          type:  notif.type,
+          tag:   `schedule-${notif.type}`,
+        })
+      )
+    );
+  } catch (pushErr) {
+    console.error('[Push] schedule notify error:', pushErr.message);
+  }
 }
 
 exports.listAll = async (req, res) => {

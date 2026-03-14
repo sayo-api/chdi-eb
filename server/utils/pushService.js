@@ -1,54 +1,41 @@
-const webpush = require('web-push');
+/**
+ * pushService.js
+ * Sends push notifications via:
+ *  - Web Push (VAPID) → browsers
+ *  - FCM V1 HTTP API  → Android app (via Firebase)
+ *
+ * Required env vars:
+ *   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL
+ *   FCM_PROJECT_ID, FCM_SERVICE_ACCOUNT_JSON  (JSON string of service account)
+ */
+
 const WebPushSubscription = require('../models/WebPushSubscription');
-const FcmToken = require('../models/FcmToken');
+const FcmToken            = require('../models/FcmToken');
 
-// ── VAPID setup (Web Push) ────────────────────────────────────────────────────
-webpush.setVapidDetails(
-  `mailto:${process.env.VAPID_EMAIL || 'admin@chdi.mil.br'}`,
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
-
-// ── FCM V1 OAuth2 token cache ─────────────────────────────────────────────────
-let _fcmAccessToken = null;
-let _fcmTokenExpiry = 0;
-
-async function getFcmAccessToken() {
-  if (_fcmAccessToken && Date.now() < _fcmTokenExpiry - 60000) return _fcmAccessToken;
-
-  let serviceAccount = null;
-  if (process.env.FCM_SERVICE_ACCOUNT_JSON) {
-    try { serviceAccount = JSON.parse(process.env.FCM_SERVICE_ACCOUNT_JSON); }
-    catch (e) { console.error('[FCM] Invalid FCM_SERVICE_ACCOUNT_JSON:', e.message); return null; }
-  } else if (process.env.FCM_SERVICE_ACCOUNT_PATH) {
-    try {
-      const fs = require('fs');
-      serviceAccount = JSON.parse(fs.readFileSync(process.env.FCM_SERVICE_ACCOUNT_PATH, 'utf8'));
-    } catch (e) { console.error('[FCM] Cannot read service account file:', e.message); return null; }
-  } else {
-    return null;
-  }
-
+// ── Web Push (VAPID) ──────────────────────────────────────────────────────────
+let _webpush = null;
+function getWebPush() {
+  if (_webpush) return _webpush;
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return null;
   try {
-    const { GoogleAuth } = require('google-auth-library');
-    const auth = new GoogleAuth({
-      credentials: serviceAccount,
-      scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
-    });
-    const client = await auth.getClient();
-    const tokenResponse = await client.getAccessToken();
-    _fcmAccessToken = tokenResponse.token;
-    _fcmTokenExpiry = Date.now() + 55 * 60 * 1000;
-    return _fcmAccessToken;
+    _webpush = require('web-push');
+    _webpush.setVapidDetails(
+      `mailto:${process.env.VAPID_EMAIL || 'admin@chdi.mil.br'}`,
+      process.env.VAPID_PUBLIC_KEY,
+      process.env.VAPID_PRIVATE_KEY
+    );
   } catch (e) {
-    console.error('[FCM] OAuth2 token error:', e.message);
-    return null;
+    console.warn('[WebPush] web-push package not installed:', e.message);
+    _webpush = null;
   }
+  return _webpush;
 }
 
 async function sendWebPush(userIds, payload) {
-  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+  const webpush = getWebPush();
+  if (!webpush) return;
   const subs = await WebPushSubscription.find({ user: { $in: userIds }, active: true });
+  if (!subs.length) return;
   const json = JSON.stringify({
     title: payload.title || 'C.H.D.I · 1º RCG',
     body:  payload.body  || '',
@@ -68,7 +55,40 @@ async function sendWebPush(userIds, payload) {
     )
   );
   const sent = results.filter(r => r.status === 'fulfilled').length;
-  if (subs.length > 0) console.log(`[WebPush] ${sent}/${subs.length} sent`);
+  console.log(`[WebPush] ${sent}/${subs.length} delivered`);
+}
+
+// ── FCM V1 (Android app) ──────────────────────────────────────────────────────
+let _fcmAccessToken = null;
+let _fcmTokenExpiry = 0;
+
+async function getFcmAccessToken() {
+  if (_fcmAccessToken && Date.now() < _fcmTokenExpiry - 60000) return _fcmAccessToken;
+
+  let serviceAccount = null;
+  if (process.env.FCM_SERVICE_ACCOUNT_JSON) {
+    try { serviceAccount = JSON.parse(process.env.FCM_SERVICE_ACCOUNT_JSON); }
+    catch (e) { console.error('[FCM] Invalid FCM_SERVICE_ACCOUNT_JSON:', e.message); return null; }
+  } else {
+    console.warn('[FCM] FCM_SERVICE_ACCOUNT_JSON not set — push to Android disabled');
+    return null;
+  }
+
+  try {
+    const { GoogleAuth } = require('google-auth-library');
+    const auth = new GoogleAuth({
+      credentials: serviceAccount,
+      scopes: ['https://www.googleapis.com/auth/firebase.messaging'],
+    });
+    const client = await auth.getClient();
+    const tokenResponse = await client.getAccessToken();
+    _fcmAccessToken = tokenResponse.token;
+    _fcmTokenExpiry = Date.now() + 55 * 60 * 1000;
+    return _fcmAccessToken;
+  } catch (e) {
+    console.error('[FCM] OAuth2 error:', e.message);
+    return null;
+  }
 }
 
 async function sendFcmPush(userIds, payload) {
@@ -81,14 +101,11 @@ async function sendFcmPush(userIds, payload) {
   if (!tokens.length) return;
 
   const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
-  const BATCH = 10;
-  for (let i = 0; i < tokens.length; i += BATCH) {
-    await Promise.allSettled(tokens.slice(i, i + BATCH).map(t => sendSingleFcm(t, payload, accessToken, fcmUrl)));
-  }
+  await Promise.allSettled(tokens.map(t => sendSingleFcm(t, payload, accessToken, fcmUrl)));
   console.log(`[FCM V1] Sent to ${tokens.length} device(s)`);
 }
 
-async function sendSingleFcm(tokenDoc, payload, accessToken, url) {
+function sendSingleFcm(tokenDoc, payload, accessToken, url) {
   const body = JSON.stringify({
     message: {
       token: tokenDoc.token,
@@ -99,7 +116,7 @@ async function sendSingleFcm(tokenDoc, payload, accessToken, url) {
       android: {
         priority: 'high',
         notification: {
-          channel_id: 'chdi_schedule',
+          channel_id: payload.type?.startsWith('schedule') ? 'chdi_schedule' : 'chdi_general',
           color: '#C9A227',
           sound: 'default',
           default_vibrate_timings: true,
@@ -108,7 +125,6 @@ async function sendSingleFcm(tokenDoc, payload, accessToken, url) {
       data: {
         type: payload.type || 'info',
         tag:  payload.tag  || '',
-        url:  payload.url  || '/escala',
       },
     },
   });
@@ -117,8 +133,8 @@ async function sendSingleFcm(tokenDoc, payload, accessToken, url) {
     const req = require('https').request({
       hostname: urlObj.hostname, path: urlObj.pathname, method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
+        'Authorization':  `Bearer ${accessToken}`,
+        'Content-Type':   'application/json',
         'Content-Length': Buffer.byteLength(body),
       },
     }, res => {
@@ -127,6 +143,8 @@ async function sendSingleFcm(tokenDoc, payload, accessToken, url) {
       res.on('end', async () => {
         if (res.statusCode === 404 || res.statusCode === 410)
           await FcmToken.findByIdAndUpdate(tokenDoc._id, { active: false });
+        if (res.statusCode >= 400)
+          console.warn(`[FCM] token ${tokenDoc.token.substring(0,20)}... → ${res.statusCode}: ${data}`);
         resolve(data);
       });
     });
@@ -137,7 +155,7 @@ async function sendSingleFcm(tokenDoc, payload, accessToken, url) {
 }
 
 async function sendPushToUsers(userIds, payload) {
-  if (!userIds || !userIds.length) return;
+  if (!userIds?.length) return;
   const ids = userIds.map(String);
   await Promise.allSettled([sendWebPush(ids, payload), sendFcmPush(ids, payload)]);
 }

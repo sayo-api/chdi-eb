@@ -1,5 +1,5 @@
 const AppUser = require('../models/AppUser');
-const { signAccessToken } = require('../utils/jwt');
+const { signAppToken } = require('../utils/jwt');
 
 exports.listUsers = async (req, res) => {
   try {
@@ -67,7 +67,7 @@ exports.setPassword = async (req, res) => {
     if (user.hasSetPassword) return res.status(400).json({ message: 'Senha já definida. Use o login normal.' });
     user.password = password; user.hasSetPassword = true;
     await user.save();
-    const token = signAccessToken(user._id, 'appuser');
+    const token = signAppToken(user._id);
     res.json({ message: 'Senha definida com sucesso.', accessToken: token, user: { id: user._id, name: user.name, soldierNumber: user.soldierNumber, rank: user.rank, role: 'appuser' } });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Erro ao definir senha.' }); }
 };
@@ -81,7 +81,7 @@ exports.loginSoldier = async (req, res) => {
     if (!user.hasSetPassword) return res.status(400).json({ message: 'Senha não definida. Faça o primeiro acesso.', needsSetup: true });
     const correct = await user.correctPassword(password);
     if (!correct) return res.status(401).json({ message: 'Número de soldado ou senha incorretos.' });
-    const token = signAccessToken(user._id, 'appuser');
+    const token = signAppToken(user._id);
     res.json({ message: 'Login realizado.', accessToken: token, user: { id: user._id, name: user.name, soldierNumber: user.soldierNumber, rank: user.rank, role: 'appuser' } });
   } catch (err) { console.error(err); res.status(500).json({ message: 'Erro ao fazer login.' }); }
 };

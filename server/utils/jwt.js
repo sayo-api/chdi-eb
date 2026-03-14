@@ -7,6 +7,13 @@ const signAccessToken = (userId, role) => {
   });
 };
 
+// App users (soldiers) get long-lived tokens — no refresh mechanism in the app
+const signAppToken = (userId) => {
+  return jwt.sign({ id: userId, role: 'appuser' }, process.env.JWT_SECRET, {
+    expiresIn: process.env.APP_JWT_EXPIRE || '90d',
+  });
+};
+
 const signRefreshToken = (userId) => {
   const jti = uuidv4();
   const token = jwt.sign({ id: userId, jti }, process.env.JWT_REFRESH_SECRET, {
@@ -36,4 +43,4 @@ const clearRefreshCookie = (res) => {
   res.clearCookie('refreshToken', cookieOptions);
 };
 
-module.exports = { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken, setRefreshCookie, clearRefreshCookie };
+module.exports = { signAccessToken, signAppToken, signRefreshToken, verifyAccessToken, verifyRefreshToken, setRefreshCookie, clearRefreshCookie };
