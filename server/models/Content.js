@@ -6,6 +6,8 @@ const contentSchema = new mongoose.Schema({
   type:        { type: String, enum: ['announcement','info','warning','success'], default: 'announcement' },
   visibility:  { type: String, enum: ['all','loggedIn','specific'], default: 'all' },
   targetUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'AppUser' }],
+  pinned:      { type: Boolean, default: false },
+  imageUrl:    { type: String, default: null },
   active:      { type: Boolean, default: true },
   createdBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });

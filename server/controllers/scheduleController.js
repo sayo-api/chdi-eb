@@ -65,7 +65,10 @@ exports.listAll = async (req, res) => {
     const { year, month } = req.query;
     let filter = {};
     if (year && month) {
-      filter.date = { $gte: new Date(Number(year), Number(month)-1, 1), $lte: new Date(Number(year), Number(month), 0, 23, 59, 59) };
+      filter.date = {
+        $gte: new Date(Date.UTC(Number(year), Number(month)-1, 1)),
+        $lte: new Date(Date.UTC(Number(year), Number(month), 0, 23, 59, 59)),
+      };
     }
     const schedules = await Schedule.find(filter).populate('entries.soldier','name soldierNumber rank').sort({ date: 1 });
     res.json({ schedules });
@@ -84,10 +87,14 @@ exports.allActive = async (req, res) => {
     const { year, month } = req.query;
     let filter = {};
     if (year && month) {
-      filter.date = { $gte: new Date(Number(year), Number(month)-1, 1), $lte: new Date(Number(year), Number(month), 0, 23, 59, 59) };
+      filter.date = {
+        $gte: new Date(Date.UTC(Number(year), Number(month)-1, 1)),
+        $lte: new Date(Date.UTC(Number(year), Number(month), 0, 23, 59, 59)),
+      };
     } else {
-      const start = new Date(); start.setDate(1);
-      const end = new Date(start); end.setMonth(end.getMonth() + 3);
+      const now = new Date();
+      const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+      const end   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 3, 0, 23, 59, 59));
       filter.date = { $gte: start, $lte: end };
     }
     const schedules = await Schedule.find(filter).populate('entries.soldier','name soldierNumber rank').sort({ date: 1 });
@@ -99,7 +106,11 @@ exports.upsert = async (req, res) => {
   try {
     const { date, entries, title, notes } = req.body;
     if (!date) return res.status(422).json({ message: 'Data é obrigatória.' });
-    const dayStart = new Date(date); dayStart.setHours(0,0,0,0);
+
+    // Use UTC midnight to avoid timezone shifts (server may not be in Brazil time)
+    const dayStart = new Date(date);
+    dayStart.setUTCHours(0, 0, 0, 0);
+
     const existing = await Schedule.findOne({ date: dayStart });
     const previousSoldierIds = existing ? existing.entries.map(e => String(e.soldier)) : [];
     const notifType = existing ? 'updated' : 'created';

@@ -12,7 +12,7 @@ exports.getContent = async (req, res) => {
         { visibility: 'specific', targetUsers: req.appUser._id },
       ];
     }
-    const content = await Content.find(query).sort({ createdAt: -1 }).limit(50);
+    const content = await Content.find(query).sort({ pinned: -1, createdAt: -1 }).limit(50);
     res.json({ content });
   } catch { res.status(500).json({ message: 'Erro ao buscar conteúdo.' }); }
 };
